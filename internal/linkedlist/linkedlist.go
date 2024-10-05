@@ -1,10 +1,12 @@
-package linkedList
+package linkedlist
 
+// Node to use in LinkedList
 type Node[T any] struct {
 	Value      T
 	Next, Prev *Node[T]
 }
 
+// LinkedList realization
 type LinkedList[T any] struct {
 	head, tail *Node[T]
 	size       int
@@ -26,21 +28,24 @@ func (l *LinkedList[T]) Size() int {
 	return l.size
 }
 
-// PushBack добавляет существующий узел в конец списка
+// PushBack pushes element to the end of the list, gets node to push
+// panics if node is nil
 func (l *LinkedList[T]) PushBack(node *Node[T]) {
 	if node == nil {
 		panic("node is nil")
 	}
 
-	// Отключаем узел от предыдущего списка
 	node.Next = nil
 	node.Prev = nil
 
+	// if tail != nil some elements are contained in the list
 	if l.tail != nil {
 		l.tail.Next = node
 		node.Prev = l.tail
 		l.tail = node
 	} else {
+		// list is empty
+		// init list
 		l.head = node
 		l.tail = node
 	}
@@ -48,21 +53,24 @@ func (l *LinkedList[T]) PushBack(node *Node[T]) {
 	l.size++
 }
 
-// PushFront добавляет существующий узел в начало списка
+// PushFront pushes element to the end of the list, gets node to push
+// panics if node is nil
 func (l *LinkedList[T]) PushFront(node *Node[T]) {
 	if node == nil {
 		panic("node is nil")
 	}
 
-	// Отключаем узел от предыдущего списка
 	node.Next = nil
 	node.Prev = nil
 
+	// if head != nil some elements are contained in the list
 	if l.head != nil {
 		l.head.Prev = node
 		node.Next = l.head
 		l.head = node
 	} else {
+		// list is empty
+		// init list
 		l.head = node
 		l.tail = node
 	}
@@ -70,19 +78,20 @@ func (l *LinkedList[T]) PushFront(node *Node[T]) {
 	l.size++
 }
 
-// PushAfter вставляет существующий узел после указанного узла
+// PushAfter pushes element after the existing node (after) of the list, gets node to push
+// panics if node or after is nil
 func (l *LinkedList[T]) PushAfter(after *Node[T], node *Node[T]) {
 	if after == nil || node == nil {
 		panic("node is nil")
 	}
 
-	// Отключаем узел от предыдущего списка
 	node.Next = nil
 	node.Prev = nil
 
 	node.Prev = after
 	node.Next = after.Next
 
+	// check that after is tail
 	if after.Next != nil {
 		after.Next.Prev = node
 	} else {
@@ -93,6 +102,8 @@ func (l *LinkedList[T]) PushAfter(after *Node[T], node *Node[T]) {
 	l.size++
 }
 
+// Pop deletes node by node
+// panics if node is nil
 func (l *LinkedList[T]) Pop(node *Node[T]) {
 	if node == nil {
 		panic("node is nil")
@@ -104,40 +115,17 @@ func (l *LinkedList[T]) Pop(node *Node[T]) {
 	if prev != nil {
 		prev.Next = next
 	} else {
-		l.head = next // если удаляемый узел - голова
+		l.head = next // if node to delete is head
 	}
 
 	if next != nil {
 		next.Prev = prev
 	} else {
-		l.tail = prev // обновляем l.tail при удалении хвоста
+		l.tail = prev // if node to delete is tail
 	}
 
-	// Обнуляем ссылки в удаленном узле
 	node.Next = nil
 	node.Prev = nil
-
-	l.size--
-}
-
-func (l *LinkedList[T]) PopBack() {
-	if l.tail == nil {
-		panic("list is empty")
-	}
-
-	oldTail := l.tail
-
-	if l.tail.Prev != nil {
-		l.tail = l.tail.Prev
-		l.tail.Next = nil
-	} else {
-		l.head = nil
-		l.tail = nil
-	}
-
-	// Обнуляем ссылки в удаленном узле
-	oldTail.Next = nil
-	oldTail.Prev = nil
 
 	l.size--
 }
