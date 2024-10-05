@@ -16,14 +16,17 @@ func New[T any]() *LinkedList[T] {
 	return &LinkedList[T]{}
 }
 
+// Head returns the node that is head of the list
 func (l *LinkedList[T]) Head() *Node[T] {
 	return l.head
 }
 
+// Tail returns the node that is tail of the list
 func (l *LinkedList[T]) Tail() *Node[T] {
 	return l.tail
 }
 
+// Size returns the size of the list
 func (l *LinkedList[T]) Size() int {
 	return l.size
 }
@@ -35,6 +38,7 @@ func (l *LinkedList[T]) PushBack(node *Node[T]) {
 		panic("node is nil")
 	}
 
+	// to be sure that this node doesn't link to other nodes in other lists
 	node.Next = nil
 	node.Prev = nil
 
@@ -50,6 +54,7 @@ func (l *LinkedList[T]) PushBack(node *Node[T]) {
 		l.tail = node
 	}
 
+	// increment size
 	l.size++
 }
 
@@ -60,6 +65,7 @@ func (l *LinkedList[T]) PushFront(node *Node[T]) {
 		panic("node is nil")
 	}
 
+	// to be sure that this node doesn't link to other nodes in other lists
 	node.Next = nil
 	node.Prev = nil
 
@@ -75,6 +81,7 @@ func (l *LinkedList[T]) PushFront(node *Node[T]) {
 		l.tail = node
 	}
 
+	// increment size
 	l.size++
 }
 
@@ -85,9 +92,11 @@ func (l *LinkedList[T]) PushAfter(after *Node[T], node *Node[T]) {
 		panic("node is nil")
 	}
 
+	// to be sure that this node doesn't link to other nodes in other lists
 	node.Next = nil
 	node.Prev = nil
 
+	// set links
 	node.Prev = after
 	node.Next = after.Next
 
@@ -99,6 +108,7 @@ func (l *LinkedList[T]) PushAfter(after *Node[T], node *Node[T]) {
 	}
 
 	after.Next = node
+	// increment size
 	l.size++
 }
 
@@ -109,23 +119,28 @@ func (l *LinkedList[T]) Pop(node *Node[T]) {
 		panic("node is nil")
 	}
 
+	// for convenient use
 	prev := node.Prev
 	next := node.Next
 
+	// set links for next
 	if prev != nil {
 		prev.Next = next
 	} else {
 		l.head = next // if node to delete is head
 	}
 
+	// set link for prev
 	if next != nil {
 		next.Prev = prev
 	} else {
 		l.tail = prev // if node to delete is tail
 	}
 
+	// ensure that the node doesn't link to other nodes
 	node.Next = nil
 	node.Prev = nil
 
+	// decrement size
 	l.size--
 }

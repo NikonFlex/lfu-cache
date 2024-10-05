@@ -149,6 +149,7 @@ func (l *CacheImpl[K, V]) incrementFrequency(elementNode *linkedlist.Node[*cache
 	frequencyNode := l.frequencies[frequency]
 	frequencyList := frequencyNode.Value
 
+	// delete node from current frequency
 	frequencyList.Pop(elementNode)
 
 	elementNode.Value.freq++
@@ -180,12 +181,17 @@ func (l *CacheImpl[K, V]) incrementFrequency(elementNode *linkedlist.Node[*cache
 // delete lfu element
 func (l *CacheImpl[K, V]) evictLFU() {
 	frequencyNode := l.cache.Head()
+
+	// no frequencies (error)
 	if frequencyNode == nil {
 		return
 	}
 	frequencyList := frequencyNode.Value
 
+	// the lowest value of lru element is head
 	elementNode := frequencyList.Head()
+
+	// no elements in this list (error)
 	if elementNode == nil {
 		return
 	}
@@ -205,8 +211,10 @@ func (l *CacheImpl[K, V]) evictLFU() {
 
 func (l *CacheImpl[K, V]) All() iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
+		// starts from tail because it is the biggest frequency
 		for frequencyNode := l.cache.Tail(); frequencyNode != nil; frequencyNode = frequencyNode.Prev {
 			frequencyList := frequencyNode.Value
+			// starts from tail because it is the lru element at current frequency
 			for elementNode := frequencyList.Tail(); elementNode != nil; elementNode = elementNode.Prev {
 				if !yield(elementNode.Value.key, elementNode.Value.value) {
 					return
@@ -226,9 +234,11 @@ func (l *CacheImpl[K, V]) Capacity() int {
 
 func (l *CacheImpl[K, V]) GetKeyFrequency(key K) (int, error) {
 	elementNode, ok := l.items[key]
+	// if key doesn't exist return error
 	if !ok {
 		return 0, ErrKeyNotFound
 	}
 
+	// if exists return frequency
 	return elementNode.Value.freq, nil
 }
