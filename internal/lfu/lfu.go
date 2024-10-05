@@ -122,6 +122,8 @@ func (l *CacheImpl[K, V]) Put(key K, value V) {
 	}
 }
 
+// adds new entry to a list
+// creates new frequency list if needed
 func (l *CacheImpl[K, V]) addNewEntry(key K, value V) {
 	newElement := &cacheElement[K, V]{key: key, value: value, freq: 1}
 	newElementNode := &linkedlist.Node[*cacheElement[K, V]]{Value: newElement}
@@ -144,6 +146,8 @@ func (l *CacheImpl[K, V]) addNewEntry(key K, value V) {
 	l.size++
 }
 
+// IncrementFrequency increments frequency of a node
+// replaces it to another frequency list
 func (l *CacheImpl[K, V]) incrementFrequency(elementNode *linkedlist.Node[*cacheElement[K, V]]) {
 	frequency := elementNode.Value.freq
 	frequencyNode := l.frequencies[frequency]

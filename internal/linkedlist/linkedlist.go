@@ -1,12 +1,18 @@
 package linkedlist
 
 // Node to use in LinkedList
+// Value - value containing in list
+// Next - next node in list
+// Prev - prev node in list
 type Node[T any] struct {
 	Value      T
 	Next, Prev *Node[T]
 }
 
 // LinkedList realization
+// head - first element of list
+// tail - last element of list
+// size - size of list
 type LinkedList[T any] struct {
 	head, tail *Node[T]
 	size       int
