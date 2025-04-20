@@ -3,6 +3,7 @@ package lfu
 import (
 	"errors"
 	"iter"
+	"lfucache/internal/linkedlist"
 )
 
 var ErrKeyNotFound = errors.New("key not found")
@@ -50,35 +51,194 @@ type Cache[K comparable, V any] interface {
 	GetKeyFrequency(key K) (int, error)
 }
 
-// cacheImpl represents LFU cache implementation
-type cacheImpl[K comparable, V any] struct{}
-
-// New initializes the cache with the given capacity.
-// If no capacity is provided, the cache will use DefaultCapacity.
-func New[K comparable, V any](capacity ...int) *cacheImpl[K, V] {
-	return new(cacheImpl[K, V])
+// struct for containing input element for frequencies
+type cacheElement[K comparable, V any] struct {
+	key   K
+	value V
+	freq  int
 }
 
-func (l *cacheImpl[K, V]) Get(key K) (V, error) {
-	panic("not implemented")
+// CacheImpl realization of Cache interface
+type сacheImpl[K comparable, V any] struct {
+	capacity    int
+	size        int
+	items       map[K]*linkedlist.Node[cacheElement[K, V]]
+	frequencies map[int]*linkedlist.Node[linkedlist.LinkedList[cacheElement[K, V]]]
+	cache       linkedlist.LinkedList[linkedlist.LinkedList[cacheElement[K, V]]]
 }
 
-func (l *cacheImpl[K, V]) Put(key K, value V) {
-	panic("not implemented")
+func New[K comparable, V any](capacity ...int) *сacheImpl[K, V] {
+	lfuCapacity := DefaultCapacity
+	// determination of capacity
+	if len(capacity) > 0 {
+		if capacity[0] < 0 {
+			panic("lfu cache capacity is negative")
+		}
+		lfuCapacity = capacity[0]
+	}
+
+	// constructing new element
+	return &сacheImpl[K, V]{
+		capacity:    lfuCapacity,
+		items:       make(map[K]*linkedlist.Node[cacheElement[K, V]], lfuCapacity),
+		frequencies: make(map[int]*linkedlist.Node[linkedlist.LinkedList[cacheElement[K, V]]]),
+		cache:       linkedlist.New[linkedlist.LinkedList[cacheElement[K, V]]](),
+	}
 }
 
-func (l *cacheImpl[K, V]) All() iter.Seq2[K, V] {
-	panic("not implemented")
+func (l *сacheImpl[K, V]) Get(key K) (V, error) {
+	var zero V
+	elementNode, ok := l.items[key]
+
+	// new element
+	if !ok {
+		return zero, ErrKeyNotFound
+	}
+
+	l.incrementFrequency(elementNode)
+	return elementNode.Value.value, nil
 }
 
-func (l *cacheImpl[K, V]) Size() int {
-	panic("not implemented")
+func (l *сacheImpl[K, V]) Put(key K, value V) {
+	// unable to put
+	if l.capacity == 0 {
+		return
+	}
+
+	// put logic
+	if elementNode, ok := l.items[key]; ok {
+		// element exists
+		elementNode.Value.value = value
+		l.incrementFrequency(elementNode)
+	} else {
+		// element doesn't exist
+		// delete lfu element
+		if l.size == l.capacity {
+			l.evictLFU()
+		}
+
+		// add new one
+		l.addNewEntry(key, value)
+	}
 }
 
-func (l *cacheImpl[K, V]) Capacity() int {
-	panic("not implemented")
+// adds new entry to a list
+// creates new frequency list if needed
+func (l *сacheImpl[K, V]) addNewEntry(key K, value V) {
+	newElement := cacheElement[K, V]{key: key, value: value, freq: 1}
+	newElementNode := &linkedlist.Node[cacheElement[K, V]]{Value: newElement}
+
+	// push to init frequency
+	l.pushToFrequency(1, newElementNode)
+
+	l.items[key] = newElementNode
+	l.size++
 }
 
-func (l *cacheImpl[K, V]) GetKeyFrequency(key K) (int, error) {
-	panic("not implemented")
+// IncrementFrequency increments frequency of a node
+// replaces it to another frequency list
+func (l *сacheImpl[K, V]) incrementFrequency(elementNode *linkedlist.Node[cacheElement[K, V]]) {
+	frequency := elementNode.Value.freq
+	frequencyNode := l.frequencies[frequency]
+	frequencyList := frequencyNode.Value
+
+	// delete node from current frequency
+	frequencyList.Pop(elementNode)
+
+	// increment frequency
+	elementNode.Value.freq++
+
+	// push element
+	l.pushToFrequency(elementNode.Value.freq, elementNode)
+
+	// delete empty frequency list
+	if frequencyList.Size() == 0 {
+		l.cache.Pop(frequencyNode)
+		delete(l.frequencies, frequency)
+	}
+}
+
+func (l *сacheImpl[K, V]) pushToFrequency(frequency int, elementNode *linkedlist.Node[cacheElement[K, V]]) {
+	var frequencyList linkedlist.LinkedList[cacheElement[K, V]]
+	if frequencyNode, ok := l.frequencies[frequency]; ok {
+		frequencyList = frequencyNode.Value
+	} else {
+		// create new list if frequency doesn't exist
+		frequencyList = linkedlist.New[cacheElement[K, V]]()
+		frequencyNode = &linkedlist.Node[linkedlist.LinkedList[cacheElement[K, V]]]{Value: frequencyList}
+
+		// init frequency
+		if frequency == 1 {
+			l.cache.PushFront(frequencyNode)
+		} else { // next frequency
+			l.cache.PushAfter(l.frequencies[frequency-1], frequencyNode)
+		}
+		l.frequencies[frequency] = frequencyNode
+	}
+
+	frequencyList.PushBack(elementNode)
+}
+
+// delete lfu element
+func (l *сacheImpl[K, V]) evictLFU() {
+	frequencyNode := l.cache.Head()
+
+	// no frequencies (error)
+	if frequencyNode == nil {
+		panic("Cache is empty, evict to early")
+	}
+	frequencyList := frequencyNode.Value
+
+	// the lowest value of lru element is head
+	elementNode := frequencyList.Head()
+
+	// no elements in this list (error)
+	if elementNode == nil {
+		panic("Frequency list is empty")
+	}
+
+	delete(l.items, elementNode.Value.key)
+
+	frequencyList.Pop(elementNode)
+
+	// delete empty frequency node
+	if frequencyList.Size() == 0 {
+		l.cache.Pop(frequencyNode)
+		delete(l.frequencies, elementNode.Value.freq)
+	}
+
+	l.size--
+}
+
+func (l *сacheImpl[K, V]) All() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		// starts from tail because it is the biggest frequency
+		for frequencyList := range l.cache.FromTail() {
+			// starts from tail because it is the lru element at current frequency
+			for elementNode := range frequencyList.FromTail() {
+				if !yield(elementNode.key, elementNode.value) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (l *сacheImpl[K, V]) Size() int {
+	return l.size
+}
+
+func (l *сacheImpl[K, V]) Capacity() int {
+	return l.capacity
+}
+
+func (l *сacheImpl[K, V]) GetKeyFrequency(key K) (int, error) {
+	elementNode, ok := l.items[key]
+	// if key doesn't exist return error
+	if !ok {
+		return 0, ErrKeyNotFound
+	}
+
+	// if exists return frequency
+	return elementNode.Value.freq, nil
 }
